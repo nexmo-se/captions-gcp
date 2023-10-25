@@ -1,6 +1,6 @@
 # How to Run the project
 
-This application shows you how you can use the Vonage Video API along with Google Cloud APIs to build a captioning application in your language of your choice
+This application shows you how you can use the Vonage Video API along with Google Cloud APIs to build a captioning application in your language of your choice. You can change the interimResults parameter in the startRecognizer method of the `streamClient.js` file. If set to false, you will only received definitive results, if set to true you will receive interim results. It's advisable to set it to true for captioning and set it to false if you plan on doing things like translation, etc.
 
 # Run the app
 
