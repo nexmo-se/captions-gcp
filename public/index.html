@@ -1,0 +1,167 @@
+<html>
+<title> Translate PoC </title>
+<head>
+	<script src="https://www.tokbox.com/v2/js/opentok.min.js"></script>
+<style>
+#board{
+    position: absolute;
+    top: 70%;
+    left: 50%;
+    margin-top: -50px;
+    margin-left: -50px;
+    width: 600px;
+    height: 200px;
+}
+</style>
+</head>
+<body>
+	<div style="display: flex; justify-content: space-evenly; width: 100vw; height: 50vh;" id="videos">
+        <div id="subscriber"></div>
+        <div id="publisher"></div>
+  </div>
+	<div id="board">
+    <p>Your Captions</p>
+	<label id="lbl"></label><br/>
+	<label id="lblOriginal"></label><br/>
+	<button id="btnAudio" style="display: none;" onclick="start()"/> Start Sending Audio </button>
+	<button id="btn" onclick="initializeSession()"/> Start Session  </button>
+	</div>
+</body>
+
+<script>
+const apiKey = '47396501';
+const sessionId =
+  '1_MX40NzM5NjUwMX5-MTY5NzYyOTEzODQ1NX55RmljejhKMnVzRExXSmhUbklzQ25VeSt-fn4';
+const token =
+  'T1==cGFydG5lcl9pZD00NzM5NjUwMSZzaWc9YzE3NTEyNDA4ZjRlNzI3N2QxMzNkMjRkNDY1MjNjMjIyOWM0NzdmMDpzZXNzaW9uX2lkPTFfTVg0ME56TTVOalV3TVg1LU1UWTVOell5T1RFek9EUTFOWDU1Um1samVqaEtNblZ6UkV4WFNtaFVia2x6UTI1VmVTdC1mbjQmY3JlYXRlX3RpbWU9MTY5ODA1MzgzNSZub25jZT0wLjkxMzIwNTc1ODcxMjI2NTMmcm9sZT1wdWJsaXNoZXImZXhwaXJlX3RpbWU9MTcwMDY0OTQzNSZpbml0aWFsX2xheW91dF9jbGFzc19saXN0PQ=='
+let streamId;
+let ctx;
+let gainNode;
+
+
+function handleError(error) {
+  if (error) {
+    alert(error.message);
+  }
+}
+
+function initializeSession() {
+  ctx = new AudioContext();
+  gainNode = ctx.createGain();
+
+  const audioEl = new Audio();
+  audioEl.setAttribute('autoplay', 'autoplay');
+  audioEl.setAttribute('playsinline', 'playsinline');
+
+  const mediaDestinationNode = ctx.createMediaStreamDestination();
+  
+ gainNode.connect(ctx.destination);
+
+  const session = OT.initSession(apiKey, sessionId);
+
+  // Subscribe to a newly created stream
+
+  // Create a publisher
+  const publisher = OT.initPublisher(
+    'publisher',
+    {
+      insertMode: 'append',
+      // width: '30%',
+      // height: '50%',
+    },
+    handleError
+  );
+  publisher.on('streamCreated', (event) => {
+    console.log(event);
+    streamId = event.stream.id;
+    document.getElementById('btnAudio').style.display = 'block';
+    document.getElementById('btn').style.display = 'none';
+  });
+
+  // Connect to the session
+  session.connect(token, function (error) {
+    // If the connection is successful, publish to the session
+    if (error) {
+      handleError(error);
+    } else {
+      session.publish(publisher, handleError);
+    }
+  });
+
+  session.on('streamCreated', function (event) {
+    console.log(event);
+    
+    const streamName = event.stream.name
+    const targetElement = streamName === 'EC' ? null : 'subscriber'
+    const defaultUI = streamName !== 'EC'
+    session.subscribe(
+      event.stream,
+      targetElement,
+      {
+        // insertMode: 'append',
+       insertDefaultUI : defaultUI
+        // width: '30%',
+        // height: '50%',
+      },
+      handleError
+    );
+  });
+}
+
+async function start() {
+  const uuid = Math.floor(Math.random(0,3)*1000000)
+  const wsUrl = `wss://b3020a8bab96.ngrok.app/socket/?uuid=${streamId}`;
+ 
+
+  if (streamId) {
+    fetch('/startStreaming', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ streamId: streamId }),
+    })
+      .then((res) => {
+        console.log(res);
+      })
+      .catch((e) => console.log(e));
+  }
+
+  const ws = new WebSocket(wsUrl);
+  ws.binaryType = 'arraybuffer';
+  ws.onmessage = (event) => {
+    if (typeof event.data === 'string') {
+      let info = JSON.parse(event.data);
+      if(info.id === streamId){
+      document.getElementById('lbl').innerHTML = info.original;
+        setTimeout(function () {
+          document.getElementById('lbl').innerHTML = '';
+        document.getElementById('lblOriginal').innerHTML = ''
+          }, 6000);
+      }
+    
+    
+  }
+  };
+  // Fired when the WebSocket closes unexpectedly due to an error or lost connetion
+  ws.onerror = (err) => {
+    console.error(err);
+  };
+  // Fired when the WebSocket connection has been closed
+  ws.onclose = (event) => {
+    console.info('Connection to websocket closed');
+    console.log(event);
+  };
+  ws.onopen = (event) => {
+    document.getElementById('btn').innerHTML = 'Connected';
+  };
+}
+
+
+ 
+   
+
+
+</script>
+</html>
